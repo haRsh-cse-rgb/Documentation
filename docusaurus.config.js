@@ -33,7 +33,7 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/your-github-org/jobquest-docs/tree/main/',
+          editUrl: 'https://github.com/haRsh-cse-rgb/Documentation/tree/main/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -62,7 +62,7 @@ const config = {
             label: 'Documentation',
           },
           {
-            href: 'https://github.com/your-github-org/jobquest-docs',
+            href: 'https://github.com/haRsh-cse-rgb/Documentation',
             label: 'GitHub',
             position: 'right',
           },
@@ -98,7 +98,7 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/your-github-org/jobquest-docs',
+                href: 'https://github.com/haRsh-cse-rgb/Documentation',
               },
             ],
           },
