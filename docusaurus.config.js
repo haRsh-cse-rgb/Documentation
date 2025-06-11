@@ -13,7 +13,7 @@ const config = {
   },
 
   url: 'https://jobquest-docs.example.com',
-  baseUrl: '/jobquest-docs/',
+  baseUrl: '/',
 
   organizationName: 'your-github-org',
   projectName: 'jobquest-docs',
