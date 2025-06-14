@@ -3,8 +3,13 @@ const Redis = require('ioredis');
 let redis = null;
 let redisAvailable = false;
 
-// Only attempt Redis connection if explicitly configured
-const shouldConnectRedis = process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost' || process.env.NODE_ENV === 'production';
+// Only attempt Redis connection if explicitly configured and not pointing to local addresses in development
+const isLocalAddress = (host) => {
+  return host === 'localhost' || host === '127.0.0.1';
+};
+
+const shouldConnectRedis = process.env.REDIS_HOST && 
+  (!isLocalAddress(process.env.REDIS_HOST) || process.env.NODE_ENV === 'production');
 
 if (shouldConnectRedis) {
   redis = new Redis({
