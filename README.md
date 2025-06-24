@@ -10,13 +10,15 @@ A scalable, clutter-free job aggregation platform with AI-powered CV analysis an
 - **Suggested Jobs**: Personalized job recommendations based on CV analysis
 - **Newsletter Subscriptions**: Category-specific email updates
 - **Sarkari Jobs**: Dedicated section for government job opportunities
+- **High Availability**: Multiple server instances with automatic failover
+- **Load Balancing**: Intelligent request distribution across servers
 - **Responsive Design**: Optimized for all devices
 - **SEO Optimized**: Built for search engine visibility
 
 ## 🛠 Tech Stack
 
 ### Frontend
-- **Next.js 14** with App Router
+- **Next.js 13** with App Router
 - **TypeScript** for type safety
 - **Tailwind CSS** for styling
 - **Framer Motion** for animations
@@ -24,16 +26,41 @@ A scalable, clutter-free job aggregation platform with AI-powered CV analysis an
 
 ### Backend
 - **Node.js** with Express.js
-- **AWS DynamoDB** for database
+- **AWS DynamoDB** for database (with fallback)
 - **AWS S3** for file storage
-- **Redis** for caching
+- **Redis** for caching (with fallback)
 - **Apache Kafka** for message queuing
 - **Google Gemini API** for AI analysis
 
 ### Infrastructure
-- **AWS** for cloud services
 - **Docker** for containerization
 - **PM2** for process management
+- **Load Balancer** for high availability
+- **Health Checks** for monitoring
+- **Graceful Shutdown** handling
+
+## 🏗 High Availability Architecture
+
+### Multiple Server Configuration
+
+The platform supports multiple server instances with automatic failover:
+
+1. **Load Balancer**: Distributes requests across healthy servers
+2. **Primary Server**: Main application server (Port 5000)
+3. **Secondary Server**: Backup server (Port 5001)
+4. **Tertiary Server**: Additional backup (Port 5002)
+
+### Database Redundancy
+
+- **Primary DynamoDB**: Main database in us-east-1
+- **Fallback DynamoDB**: Backup database in us-west-2
+- **Automatic Failover**: Switches to fallback on primary failure
+
+### Cache Redundancy
+
+- **Primary Redis**: Main cache server (Port 6379)
+- **Fallback Redis**: Backup cache server (Port 6380)
+- **Mock Client**: WebContainer fallback for development
 
 ## 📁 Project Structure
 
@@ -43,9 +70,12 @@ jobquest-platform/
 │   ├── api/                 # Backend Express.js App
 │   │   ├── src/
 │   │   │   ├── api/v1/      # API routes and controllers
-│   │   │   ├── config/      # Database and service configs
+│   │   │   ├── config/      # Database, Redis, and server configs
 │   │   │   ├── services/    # External service integrations
+│   │   │   ├── middleware/  # Health checks and error handling
 │   │   │   └── jobs/        # Background jobs
+│   │   ├── ecosystem.config.js  # PM2 configuration
+│   │   ├── load-balancer.js     # Load balancer entry point
 │   │   └── package.json
 │   │
 │   └── web/                 # Frontend Next.js App
@@ -53,6 +83,7 @@ jobquest-platform/
 │       ├── components/      # React components
 │       └── package.json
 │
+├── docker-compose.yml       # Multi-container setup
 ├── .env.example
 └── README.md
 ```
@@ -62,12 +93,11 @@ jobquest-platform/
 ### Prerequisites
 
 - Node.js 18+ 
-- npm or yarn
+- Docker & Docker Compose (for production)
 - AWS Account (for DynamoDB, S3)
-- Redis instance
-- Kafka instance (optional for development)
+- Redis instances (optional for development)
 
-### Installation
+### Development Setup
 
 1. **Clone the repository**
    ```bash
@@ -87,63 +117,66 @@ jobquest-platform/
    cp .env.example packages/web/.env.local
    ```
 
-4. **Configure environment variables**
-   
-   Edit `.env` and `packages/web/.env.local` with your actual values:
-
-   **Required AWS Services:**
-   - DynamoDB tables: `Jobs`, `SarkariJobs`, `Subscriptions`, `Admins`
-   - S3 bucket for CV storage
-   - IAM user with appropriate permissions
-
-   **Required External Services:**
-   - Google Gemini API key
-   - Redis instance
-   - Mailchimp account (for newsletters)
-
-### Development
-
-1. **Start the development servers**
+4. **Start development servers**
    ```bash
    npm run dev
    ```
 
-   This starts both:
-   - API server on `http://localhost:5000`
-   - Web app on `http://localhost:3000`
+### Production Deployment
 
-2. **Start individual services**
-   ```bash
-   # API only
-   npm run dev:api
-   
-   # Web only
-   npm run dev:web
-   ```
+#### Option 1: Docker Compose (Recommended)
 
-## 🗄️ Database Setup
+```bash
+# Build and start all services
+docker-compose up -d
 
-### DynamoDB Tables
+# View logs
+docker-compose logs -f
 
-Create the following tables in AWS DynamoDB:
+# Stop services
+docker-compose down
+```
 
-#### Jobs Table
-- **Partition Key**: `category` (String)
-- **Sort Key**: `jobId` (String)
-- **GSI**: `LocationIndex`, `BatchIndex`, `StatusIndex`
+#### Option 2: PM2 Process Manager
 
-#### SarkariJobs Table
-- **Partition Key**: `organization` (String)
-- **Sort Key**: `jobId` (String)
-- **GSI**: `StatusIndex`
+```bash
+# Install PM2 globally
+npm install -g pm2
 
-#### Subscriptions Table
-- **Partition Key**: `email` (String)
-- **Sort Key**: `category` (String)
-- **GSI**: `CategoryIndex`
+# Start all API instances
+cd packages/api
+npm run start:pm2
 
-#### Admins Table
-- **Partition Key**: `email` (String)
+# Start load balancer
+node load-balancer.js
+
+# Monitor processes
+pm2 monit
+```
+
+#### Option 3: Manual Multi-Server Setup
+
+```bash
+# Terminal 1 - Primary Server
+cd packages/api
+PORT=5000 npm start
+
+# Terminal 2 - Secondary Server
+cd packages/api
+PORT=5001 npm start
+
+# Terminal 3 - Tertiary Server
+cd packages/api
+PORT=5002 npm start
+
+# Terminal 4 - Load Balancer
+cd packages/api
+node load-balancer.js
+
+# Terminal 5 - Frontend
+cd packages/web
+npm start
+```
 
 ## 🔧 Configuration
 
@@ -153,130 +186,213 @@ Create the following tables in AWS DynamoDB:
 ```env
 # API Configuration
 PORT=5000
-NODE_ENV=development
+NODE_ENV=production
 FRONTEND_URL=http://localhost:3000
+LOAD_BALANCER_PORT=8080
 
-# AWS Configuration
+# AWS Configuration (Primary)
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=your_aws_access_key_id
 AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
 
-# DynamoDB Tables
-JOBS_TABLE=Jobs
-SARKARI_JOBS_TABLE=SarkariJobs
-SUBSCRIPTIONS_TABLE=Subscriptions
-ADMINS_TABLE=Admins
+# AWS Configuration (Fallback)
+AWS_REGION_FALLBACK=us-west-2
+AWS_ACCESS_KEY_ID_FALLBACK=your_aws_access_key_id_fallback
+AWS_SECRET_ACCESS_KEY_FALLBACK=your_aws_secret_access_key_fallback
 
-# S3 Configuration
-CV_BUCKET_NAME=jobquest-cvs
-
-# Redis Configuration
+# Redis Configuration (Primary)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
-# Google Gemini API
-GEMINI_API_KEY=your_gemini_api_key
-
-# JWT Secret
-JWT_SECRET=your_jwt_secret_key
+# Redis Configuration (Fallback)
+REDIS_HOST_FALLBACK=localhost
+REDIS_PORT_FALLBACK=6380
 ```
 
 #### Frontend (packages/web/.env.local)
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
 ```
 
-## 📚 API Documentation
+## 🏥 Health Monitoring
 
-### Public Endpoints
+### Health Check Endpoints
 
-- `GET /api/v1/jobs` - Get jobs with filtering
-- `GET /api/v1/jobs/:id` - Get single job
-- `GET /api/v1/sarkari-jobs` - Get government jobs
-- `POST /api/v1/subscribe` - Subscribe to newsletter
-- `POST /api/v1/ai/analyze-cv` - Analyze CV against job
-- `GET /api/v1/s3/pre-signed-url` - Get CV upload URL
+- **Load Balancer**: `http://localhost:8080/health`
+- **Primary API**: `http://localhost:5000/health`
+- **Secondary API**: `http://localhost:5001/health`
+- **Tertiary API**: `http://localhost:5002/health`
 
-### Admin Endpoints (JWT Required)
+### Health Check Response
 
-- `POST /api/v1/admin/login` - Admin login
-- `POST /api/v1/admin/jobs` - Create job
-- `PUT /api/v1/admin/jobs/:id` - Update job
-- `DELETE /api/v1/admin/jobs/:id` - Delete job
-
-## 🎨 Features in Detail
-
-### AI CV Analysis
-1. User uploads CV to S3 via pre-signed URL
-2. System fetches job description and CV content
-3. Gemini API analyzes compatibility
-4. Returns score, strengths, weaknesses, and improvements
-5. Suggests matching jobs based on skills
-
-### Newsletter System
-1. Users subscribe to specific job categories
-2. Subscriptions stored in DynamoDB
-3. Kafka publishes subscription events
-4. Background service processes Mailchimp integration
-
-### Job Filtering
-- Real-time search with debouncing
-- Category, location, batch year filters
-- Skill/tag-based filtering
-- Redis caching for performance
-
-## 🚀 Deployment
-
-### Production Build
-```bash
-npm run build
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "services": {
+    "database": {
+      "status": "healthy",
+      "responseTime": 1640995200000
+    },
+    "redis": {
+      "status": "healthy",
+      "responseTime": 1640995200000
+    }
+  },
+  "server": {
+    "pid": 12345,
+    "uptime": 3600,
+    "memory": {...},
+    "cpu": {...}
+  }
+}
 ```
 
-### Docker Deployment
-```bash
-# Build images
-docker build -t jobquest-api ./packages/api
-docker build -t jobquest-web ./packages/web
+## 🔄 Load Balancing
 
-# Run containers
-docker run -p 5000:5000 jobquest-api
-docker run -p 3000:3000 jobquest-web
+### Features
+
+- **Round-Robin Distribution**: Requests distributed evenly across servers
+- **Health Monitoring**: Automatic detection of server failures
+- **Automatic Failover**: Failed servers removed from rotation
+- **Recovery Detection**: Failed servers automatically re-added when healthy
+- **Request Logging**: All proxy requests logged for monitoring
+
+### Load Balancer Configuration
+
+```javascript
+const servers = [
+  { name: 'primary', host: 'localhost', port: 5000, priority: 1 },
+  { name: 'secondary', host: 'localhost', port: 5001, priority: 2 },
+  { name: 'tertiary', host: 'localhost', port: 5002, priority: 3 }
+];
+```
+
+## 🛡️ Failover Mechanisms
+
+### Database Failover
+
+1. **Primary DynamoDB** fails
+2. **Automatic detection** via health checks
+3. **Switch to fallback** DynamoDB in different region
+4. **Continue operations** with minimal disruption
+
+### Cache Failover
+
+1. **Primary Redis** fails
+2. **Automatic detection** via connection monitoring
+3. **Switch to fallback** Redis instance
+4. **Graceful degradation** if both fail (mock client)
+
+### Server Failover
+
+1. **Server health check** fails
+2. **Remove from load balancer** rotation
+3. **Distribute traffic** to remaining healthy servers
+4. **Monitor for recovery** and re-add when healthy
+
+## 📊 Monitoring & Logging
+
+### PM2 Monitoring
+
+```bash
+# View process status
+pm2 status
+
+# View logs
+pm2 logs
+
+# Monitor resources
+pm2 monit
+
+# Restart specific app
+pm2 restart jobquest-api-primary
+```
+
+### Docker Monitoring
+
+```bash
+# View container status
+docker-compose ps
+
+# View logs
+docker-compose logs -f api-primary
+
+# Restart specific service
+docker-compose restart api-primary
 ```
 
 ## 🔒 Security Features
 
-- JWT authentication for admin routes
-- Rate limiting on API endpoints
-- Input validation and sanitization
-- CORS configuration
-- Helmet.js security headers
-- Pre-signed URLs for secure file uploads
+- **JWT authentication** for admin routes
+- **Rate limiting** on API endpoints
+- **Input validation** and sanitization
+- **CORS configuration**
+- **Helmet.js security** headers
+- **Graceful error handling**
+- **Request ID tracking**
 
 ## 📈 Performance Optimizations
 
-- Redis caching for frequent queries
-- DynamoDB GSI for efficient filtering
-- Next.js image optimization
-- Lazy loading components
-- Code splitting
-- CDN for static assets
+- **Load balancing** across multiple servers
+- **Database failover** for high availability
+- **Redis caching** with fallback
+- **Connection pooling**
+- **Graceful shutdown** handling
+- **Memory management** with PM2
+- **Health monitoring** and auto-recovery
 
-## 🧪 Testing
+## 🧪 Testing High Availability
+
+### Test Server Failover
 
 ```bash
-# Run API tests
-cd packages/api && npm test
+# Stop primary server
+pm2 stop jobquest-api-primary
 
-# Run web tests
-cd packages/web && npm test
+# Verify load balancer removes it from rotation
+curl http://localhost:8080/health
+
+# Restart server
+pm2 start jobquest-api-primary
+
+# Verify it's added back to rotation
+curl http://localhost:8080/health
 ```
+
+### Test Database Failover
+
+```bash
+# Simulate primary database failure
+# (Configure invalid credentials for primary)
+
+# Make API request
+curl http://localhost:8080/api/v1/jobs
+
+# Check logs for fallback activation
+docker-compose logs api-primary
+```
+
+## 🚀 Scaling
+
+### Horizontal Scaling
+
+- Add more server instances to `serverConfig.js`
+- Update Docker Compose with additional services
+- Configure load balancer to include new servers
+
+### Vertical Scaling
+
+- Increase PM2 instance count in `ecosystem.config.js`
+- Adjust Docker resource limits
+- Optimize memory settings
 
 ## 📝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
+3. Test with multiple server setup
+4. Ensure health checks pass
 5. Submit a pull request
 
 ## 📄 License
@@ -286,16 +402,18 @@ This project is licensed under the MIT License.
 ## 🆘 Support
 
 For support and questions:
+- Check health endpoints for system status
+- Review logs for error details
 - Create an issue on GitHub
-- Check the documentation
 - Contact the development team
 
 ## 🔮 Roadmap
 
-- [ ] Mobile app development
-- [ ] Advanced analytics dashboard
-- [ ] Video interview integration
-- [ ] Salary insights and trends
-- [ ] Company reviews and ratings
-- [ ] Job application tracking
-- [ ] Skills assessment tests
+- [ ] Kubernetes deployment configuration
+- [ ] Advanced monitoring with Prometheus/Grafana
+- [ ] Auto-scaling based on load
+- [ ] Circuit breaker pattern implementation
+- [ ] Distributed tracing
+- [ ] Blue-green deployment strategy
+- [ ] Database read replicas
+- [ ] CDN integration for static assets

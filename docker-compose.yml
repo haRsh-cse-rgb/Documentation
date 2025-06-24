@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  # Load Balancer
+  load-balancer:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile.loadbalancer
+    ports:
+      - "8080:8080"
+    environment:
+      - LOAD_BALANCER_PORT=8080
+    depends_on:
+      - api-primary
+      - api-secondary
+      - api-tertiary
+    restart: unless-stopped
+
+  # Primary API Server
+  api-primary:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Secondary API Server
+  api-secondary:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Tertiary API Server
+  api-tertiary:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - NODE_ENV=production
+      - PORT=5002
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend
+  web:
+    build:
+      context: ./packages/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://load-balancer:8080/api/v1
+    depends_on:
+      - load-balancer
+    restart: unless-stopped
+
+  # Redis Primary
+  redis-primary:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-primary-data:/data
+    restart: unless-stopped
+
+  # Redis Fallback
+  redis-fallback:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-fallback-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-primary-data:
+  redis-fallback-data:
