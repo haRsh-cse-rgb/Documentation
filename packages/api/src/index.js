@@ -31,6 +31,11 @@ app.get('/health', healthCheck);
 // Routes
 app.use('/api/v1/jobs', require('./api/v1/routes/jobs'));
 app.use('/api/v1/sarkari-jobs', require('./api/v1/routes/sarkariJobs'));
+app.use('/api/v1/sarkari-results', require('./api/v1/routes/sarkariResults'));
+app.use('/api/v1/hackathons', require('./api/v1/routes/hackathons'));
+app.use('/api/v1/certifications', require('./api/v1/routes/certifications'));
+app.use('/api/v1/courses', require('./api/v1/routes/courses'));
+app.use('/api/v1/resume-tips', require('./api/v1/routes/resumeTips'));
 app.use('/api/v1/admin', require('./api/v1/routes/admin'));
 app.use('/api/v1/ai', require('./api/v1/routes/ai'));
 app.use('/api/v1/s3', require('./api/v1/routes/s3'));

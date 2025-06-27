@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { MagnifyingGlassIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, Bars3Icon, XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isResourcesOpen, setIsResourcesOpen] = useState(false)
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -15,6 +16,13 @@ export default function Navbar() {
       window.location.href = `/jobs?q=${encodeURIComponent(searchQuery.trim())}`
     }
   }
+
+  const resourcesLinks = [
+    { href: '/hackathons', label: 'Hackathons' },
+    { href: '/certifications', label: 'Certifications' },
+    { href: '/courses', label: 'Courses' },
+    { href: '/resume-tips', label: 'Resume Tips' },
+  ]
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
@@ -39,6 +47,39 @@ export default function Navbar() {
             <Link href="/sarkari-results" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
               Results
             </Link>
+            
+            {/* Resources Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsResourcesOpen(!isResourcesOpen)}
+                className="flex items-center text-gray-700 hover:text-primary-600 font-medium transition-colors"
+              >
+                Resources
+                <ChevronDownIcon className={`ml-1 h-4 w-4 transition-transform ${isResourcesOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              <AnimatePresence>
+                {isResourcesOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+                  >
+                    {resourcesLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-colors"
+                        onClick={() => setIsResourcesOpen(false)}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -114,6 +155,21 @@ export default function Navbar() {
                 >
                   Results
                 </Link>
+                
+                {/* Mobile Resources */}
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <p className="px-3 py-1 text-sm font-medium text-gray-500">Resources</p>
+                  {resourcesLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="block px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>

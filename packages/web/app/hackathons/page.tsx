@@ -1,0 +1,298 @@
+'use client'
+
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Navbar from '@/components/Navbar'
+import Footer from '@/components/Footer'
+import HackathonCard from '@/components/HackathonCard'
+import Pagination from '@/components/Pagination'
+import { MagnifyingGlassIcon, CodeBracketIcon } from '@heroicons/react/24/outline'
+
+interface Hackathon {
+  hackathonId: string
+  title: string
+  description: string
+  organizer: string
+  category: string
+  registrationDeadline: string
+  eventDate: string
+  duration: string
+  prizePool: string
+  registrationLink: string
+  githubRepo?: string
+  resources?: string[]
+  status: string
+  tags: string[]
+}
+
+interface Pagination {
+  currentPage: number
+  totalPages: number
+  totalHackathons: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
+function HackathonsContent() {
+  const searchParams = useSearchParams()
+  const [hackathons, setHackathons] = useState<Hackathon[]>([])
+  const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState<Pagination>({
+    currentPage: 1,
+    totalPages: 1,
+    totalHackathons: 0,
+    hasNext: false,
+    hasPrev: false
+  })
+
+  const [filters, setFilters] = useState({
+    q: searchParams.get('q') || '',
+    category: searchParams.get('category') || '',
+    status: searchParams.get('status') || 'active',
+    page: parseInt(searchParams.get('page') || '1')
+  })
+
+  useEffect(() => {
+    fetchHackathons()
+  }, [filters])
+
+  const fetchHackathons = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.set(key, value.toString())
+      })
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hackathons?${params.toString()}`)
+      const data = await response.json()
+      
+      setHackathons(data.hackathons || [])
+      setPagination(data.pagination || {
+        currentPage: 1,
+        totalPages: 1,
+        totalHackathons: 0,
+        hasNext: false,
+        hasPrev: false
+      })
+    } catch (error) {
+      console.error('Error fetching hackathons:', error)
+      setHackathons([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFilterChange = (newFilters: any) => {
+    setFilters({ ...newFilters, page: 1 })
+    
+    // Update URL
+    const params = new URLSearchParams()
+    Object.entries(newFilters).forEach(([key, value]) => {
+      if (value && key !== 'page') params.set(key, value.toString())
+    })
+    
+    const newUrl = `/hackathons${params.toString() ? `?${params.toString()}` : ''}`
+    window.history.pushState({}, '', newUrl)
+  }
+
+  const handlePageChange = (page: number) => {
+    setFilters({ ...filters, page })
+    
+    // Update URL with page
+    const params = new URLSearchParams()
+    Object.entries({ ...filters, page }).forEach(([key, value]) => {
+      if (value) params.set(key, value.toString())
+    })
+    
+    const newUrl = `/hackathons?${params.toString()}`
+    window.history.pushState({}, '', newUrl)
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const categories = [
+    'Web Development', 'Mobile App', 'AI/ML', 'Blockchain', 'IoT',
+    'Game Development', 'Data Science', 'Cybersecurity', 'AR/VR', 'Fintech'
+  ]
+
+  const statusOptions = [
+    { value: 'active', label: 'Open for Registration' },
+    { value: 'ongoing', label: 'Ongoing' },
+    { value: 'completed', label: 'Completed' }
+  ]
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {filters.q ? `Search Results for "${filters.q}"` : 'Hackathons'}
+          </h1>
+          <p className="text-gray-600">
+            {loading ? 'Loading...' : `${pagination.totalHackathons} hackathons found`}
+          </p>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Filters Sidebar */}
+          <div className="lg:w-1/4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Filters</h3>
+              
+              <div className="space-y-6">
+                {/* Search */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.q}
+                    onChange={(e) => handleFilterChange({ ...filters, q: e.target.value })}
+                    placeholder="Hackathon name, organizer..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={filters.category}
+                    onChange={(e) => handleFilterChange({ ...filters, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status
+                  </label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange({ ...filters, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    {statusOptions.map((status) => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hackathons List */}
+          <div className="lg:w-3/4">
+            {loading ? (
+              <div className="space-y-6">
+                {[...Array(6)].map((_, index) => (
+                  <div key={index} className="bg-white rounded-xl p-6 animate-pulse">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                      </div>
+                      <div className="w-24 h-8 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="h-16 bg-gray-200 rounded mb-4"></div>
+                    <div className="flex space-x-4">
+                      <div className="h-4 bg-gray-200 rounded w-32"></div>
+                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : hackathons.length > 0 ? (
+              <>
+                <div className="space-y-6">
+                  {hackathons.map((hackathon) => (
+                    <HackathonCard key={hackathon.hackathonId} hackathon={hackathon} />
+                  ))}
+                </div>
+                
+                {pagination.totalPages > 1 && (
+                  <div className="mt-12">
+                    <Pagination
+                      currentPage={pagination.currentPage}
+                      totalPages={pagination.totalPages}
+                      onPageChange={handlePageChange}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <CodeBracketIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No hackathons found</h3>
+                <p className="text-gray-600 mb-6">
+                  Try adjusting your search criteria or filters to find more hackathons.
+                </p>
+                <button
+                  onClick={() => handleFilterChange({
+                    q: '',
+                    category: '',
+                    status: 'active',
+                    page: 1
+                  })}
+                  className="btn-primary"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Footer />
+    </div>
+  )
+}
+
+export default function HackathonsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="flex gap-8">
+              <div className="w-1/4">
+                <div className="h-96 bg-gray-200 rounded"></div>
+              </div>
+              <div className="w-3/4 space-y-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-48 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    }>
+      <HackathonsContent />
+    </Suspense>
+  )
+}
